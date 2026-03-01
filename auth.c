@@ -2,10 +2,21 @@
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 
 static char stored[100];
 
+static void slp() {
+#ifdef _WIN32
+  Sleep(1000); // 1 second = 1000 ms
+#else
+  sleep(1); // 1 second
+#endif
+}
 void login_system() {
   FILE *fp = fopen("password.txt", "r");
 
@@ -31,12 +42,12 @@ void login_system() {
     if (strcmp(user, "admin") == 0 && strcmp(pass, stored) == 0) {
       printf("\nLogin Successful!\n");
       // user get some time to see the text
-      sleep(1);
+      slp();
       break;
     }
 
     printf("\nInvalid Credentials!\n");
-    sleep(1);
+    slp();
   }
 }
 
