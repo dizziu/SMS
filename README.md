@@ -4,6 +4,7 @@
 
 ```bash
 
+git clone https://github.com/dizziu/SMS.git
 gcc main.c student.c auth.c utils.c -o sms.exe
 sms.exe
 
@@ -13,6 +14,7 @@ sms.exe
 
 ```bash
 
+git clone https://github.com/dizziu/SMS.git
 make
 ./sms
 

@@ -19,6 +19,7 @@ static void slp() {
 #endif
 }
 void login_system() {
+  int i = 0;
   FILE *fp = fopen("password.txt", "r");
 
   if (fp) {
@@ -26,6 +27,7 @@ void login_system() {
     fclose(fp);
   } else {
     strcpy(stored, "admin");
+    i = 1;
   }
 
   char user[50], pass[100];
@@ -33,6 +35,10 @@ void login_system() {
   while (1) {
     clear_screen();
     show_time();
+    if (i) {
+      printf("Username: admin \n");
+      printf("Default Password: admin \n");
+    }
 
     printf("\nUsername: ");
     scanf("%s", user);

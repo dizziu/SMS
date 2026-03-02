@@ -5,10 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* =========================
-   Hash Function
-   ========================= */
-
 unsigned int hash(const char *id) {
   unsigned int h = 0;
   while (*id) {
@@ -16,10 +12,6 @@ unsigned int hash(const char *id) {
   }
   return h % TABLE_SIZE;
 }
-
-/* =========================
-   Database Core
-   ========================= */
 
 void db_init(Database *db) {
   for (int i = 0; i < TABLE_SIZE; i++)
@@ -87,10 +79,6 @@ void db_free(Database *db) {
   }
 }
 
-/* =========================
-   Persistence (Snapshot)
-   ========================= */
-
 void save_snapshot(Database *db) {
   FILE *file = fopen(DATA_FILE, "wb");
   if (!file) {
@@ -122,10 +110,6 @@ void load_snapshot(Database *db) {
 
   fclose(file);
 }
-
-/* =========================
-   User Interface
-   ========================= */
 
 void input_student(Student *s) {
   clear_screen();
@@ -279,7 +263,7 @@ void menu(Database *db) {
     printf("6. Change password\n");
     printf("7. Show Stats\n");
     printf("8. Exit\n");
-    printf("Choice:");
+    printf("Choice: ");
     scanf("%d", &choice);
 
     switch (choice) {
