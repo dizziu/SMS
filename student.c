@@ -31,7 +31,6 @@ void db_add(Database *db, Student s) {
 }
 
 Student *db_find(Database *db, const char *id) {
-  clear_screen();
   unsigned int index = hash(id);
   Node *current = db->buckets[index];
 
@@ -41,7 +40,6 @@ Student *db_find(Database *db, const char *id) {
     current = current->next;
   }
   return NULL;
-  wait_enter();
 }
 
 void db_delete(Database *db, const char *id) {
@@ -59,6 +57,7 @@ void db_delete(Database *db, const char *id) {
       free(current);
       db->count--;
       printf("Student deleted.\n");
+      wait_enter();
       return;
     }
     prev = current;
@@ -124,12 +123,15 @@ void input_student(Student *s) {
 
   printf("Gender: ");
   scanf("%99s", s->gender);
-  printf("Father: ");
+  printf("Father(First name only): ");
   scanf("%99s", s->father);
-  printf("Mother: ");
+  printf("Mother(First name only): ");
   scanf("%99s", s->mother);
-  printf("DOB: ");
+  printf("DOB(YYYY/MM/DD): ");
   scanf("%19s", s->dob);
+
+  printf("\nStudent Added Successfully\n");
+  wait_enter();
 }
 
 void db_update(Database *db, Student s, char *id) {
@@ -267,21 +269,25 @@ void menu(Database *db) {
     scanf("%d", &choice);
 
     switch (choice) {
+    // TODO: Check for same id
     case 1:
       input_student(&s);
       db_add(db, s);
-      printf("Student added.\n");
       break;
 
     case 2:
-        clear_screen();
+      clear_screen();
       printf("Enter ID: ");
       scanf("%19s", id);
       Student *found = db_find(db, id);
-      if (found)
+      if (found) {
+        clear_screen();
+        printf("Student found!\n");
         print_student(found);
-      else
-        printf("Student not found.\n");
+      } else {
+      }
+      printf("Student not found.\n");
+      wait_enter();
       break;
 
     case 3:
@@ -292,6 +298,7 @@ void menu(Database *db) {
       break;
 
     case 4:
+      clear_screen();
       printf("Enter ID to update: ");
       scanf("%19s", id);
 
