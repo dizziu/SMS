@@ -1,238 +1,337 @@
 #include "student.h"
+#include "auth.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Use of static here means that the variable is only defined within this file and doesn't link to other file
-static FILE *dataFile;
-static Student temp, *head = NULL;
+/* =========================
+   Hash Function
+   ========================= */
 
-// initialization of the main file where all our data is stored
-void init_data_file() {
-  dataFile = fopen("students.dat", "rb+");
-  if (!dataFile)
-    dataFile = fopen("students.dat", "wb+");
+unsigned int hash(const char *id) {
+  unsigned int h = 0;
+  while (*id) {
+    h = (h * 31) + *id++;
+  }
+  return h % TABLE_SIZE;
 }
 
-// initialization of the linked list
-static void load_list() {
-  rewind(dataFile);
-  head = NULL;
+/* =========================
+   Database Core
+   ========================= */
 
-  Student *node, *last = NULL;
+void db_init(Database *db) {
+  for (int i = 0; i < TABLE_SIZE; i++)
+    db->buckets[i] = NULL;
+  db->count = 0;
+}
 
-  // here the fread reads exatcly the size of "Student" struct from the file at one time and return 1 if it's successful and 0 if end of file(uses binary mode)
-  while (fread(&temp, sizeof(Student), 1, dataFile) == 1) {
-    node = malloc(sizeof(Student));
-    *node = temp;
-    node->next = NULL;
+void db_add(Database *db, Student s) {
+  unsigned int index = hash(s.id);
 
-    if (!head)
-      head = node;
-    else
-      last->next = node;
+  Node *newNode = malloc(sizeof(Node));
+  newNode->data = s;
+  newNode->next = db->buckets[index];
+  db->buckets[index] = newNode;
 
-    last = node;
+  db->count++;
+}
+
+Student *db_find(Database *db, const char *id) {
+  clear_screen();
+  unsigned int index = hash(id);
+  Node *current = db->buckets[index];
+
+  while (current) {
+    if (strcmp(current->data.id, id) == 0)
+      return &current->data;
+    current = current->next;
+  }
+  return NULL;
+  wait_enter();
+}
+
+void db_delete(Database *db, const char *id) {
+  unsigned int index = hash(id);
+  Node *current = db->buckets[index];
+  Node *prev = NULL;
+
+  while (current) {
+    if (strcmp(current->data.id, id) == 0) {
+      if (prev)
+        prev->next = current->next;
+      else
+        db->buckets[index] = current->next;
+
+      free(current);
+      db->count--;
+      printf("Student deleted.\n");
+      return;
+    }
+    prev = current;
+    current = current->next;
+  }
+  printf("Student not found.\n");
+  wait_enter();
+}
+
+void db_free(Database *db) {
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    Node *current = db->buckets[i];
+    while (current) {
+      Node *temp = current;
+      current = current->next;
+      free(temp);
+    }
   }
 }
 
+/* =========================
+   Persistence (Snapshot)
+   ========================= */
 
-// Storing the data given by user to the file
-void add_student() {
+void save_snapshot(Database *db) {
+  FILE *file = fopen(DATA_FILE, "wb");
+  if (!file) {
+    printf("Error saving file.\n");
+    return;
+  }
+
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    Node *current = db->buckets[i];
+    while (current) {
+      fwrite(&current->data, sizeof(Student), 1, file);
+      current = current->next;
+    }
+  }
+
+  fclose(file);
+  printf("Data saved successfully.\n");
+}
+
+void load_snapshot(Database *db) {
+  FILE *file = fopen(DATA_FILE, "rb");
+  if (!file)
+    return;
+
+  Student s;
+  while (fread(&s, sizeof(Student), 1, file) == 1) {
+    db_add(db, s);
+  }
+
+  fclose(file);
+}
+
+/* =========================
+   User Interface
+   ========================= */
+
+void input_student(Student *s) {
   clear_screen();
-  printf("\n--- Add Student ---\n");
+  printf("ID: ");
+  scanf("%19s", s->id);
 
   printf("First Name: ");
-  scanf("%s", temp.fname);
+  scanf("%49s", s->fname);
 
   printf("Last Name: ");
-  scanf("%s", temp.lname);
-
-  printf("ID: ");
-  scanf("%s", temp.id);
+  scanf("%49s", s->lname);
 
   printf("Gender: ");
-  scanf("%s", temp.gender);
-
+  scanf("%99s", s->gender);
   printf("Father: ");
-  scanf("%s", temp.father);
-
+  scanf("%99s", s->father);
   printf("Mother: ");
-  scanf("%s", temp.mother);
-
+  scanf("%99s", s->mother);
   printf("DOB: ");
-  scanf("%s", temp.dob);
-
-  fwrite(&temp, sizeof(Student), 1, dataFile);
-
-  printf("\nStudent Added!\n");
-  wait_enter();
+  scanf("%19s", s->dob);
 }
 
-// Displaying record using the linked list
-void display_students() {
-  clear_screen();
-  load_list();
-
-  Student *curr = head;
-
-  printf("\n--- Student List ---\n");
-
-  while (curr) {
-    printf("%s %s | ID: %s\n", curr->fname, curr->lname, curr->id);
-    curr = curr->next;
-  }
-
-  wait_enter();
-}
-
-// Search for the student in the linked list
-void search_student() {
-  clear_screen();
-  load_list();
-
-  char sid[30];
-  printf("Enter ID: ");
-  scanf("%s", sid);
-
-  Student *curr = head;
-  int found = 0;
-
-  while (curr) {
-    if (strcmp(curr->id, sid) == 0) {
-      printf("\nName: %s %s", curr->fname, curr->lname);
-      printf("\nFather: %s", curr->father);
-      printf("\nMother: %s", curr->mother);
-      printf("\nGender: %s", curr->gender);
-      printf("\nDOB: %s\n", curr->dob);
-      found = 1;
-      break;
-    }
-    curr = curr->next;
-  }
-
-  if (!found)
-    printf("\nNot Found!\n");
-
-  wait_enter();
-}
-
-// Update the student data
-void update_student() {
-  clear_screen();
-
-  FILE *tmp = fopen("temp.dat", "wb");
-  char sid[30];
+void db_update(Database *db, Student s, char *id) {
   int updated = 0;
+  if (db_find(db, id) != NULL) {
+    updated = 1;
+    strcpy(s.id, id); // keep same ID
+    printf("Enter new details:\n");
+    printf("First Name: ");
+    scanf("%49s", s.fname);
 
-  printf("Enter ID to update: ");
-  scanf("%s", sid);
+    printf("Last Name: ");
+    scanf("%49s", s.lname);
 
-  rewind(dataFile);
+    printf("Gender: ");
+    scanf("%99s", s.gender);
 
-  while (fread(&temp, sizeof(Student), 1, dataFile) == 1) {
+    printf("Father: ");
+    scanf("%99s", s.father);
 
-    if (strcmp(temp.id, sid) == 0) {
-      updated = 1;
+    printf("Mother: ");
+    scanf("%99s", s.mother);
 
-      printf("\nEnter new details:\n");
+    printf("DOB: ");
+    scanf("%19s", s.dob);
 
-      printf("First Name: ");
-      scanf("%s", temp.fname);
-
-      printf("Last Name: ");
-      scanf("%s", temp.lname);
-
-      printf("Gender: ");
-      scanf("%s", temp.gender);
-
-      printf("Father: ");
-      scanf("%s", temp.father);
-
-      printf("Mother: ");
-      scanf("%s", temp.mother);
-
-      printf("DOB: ");
-      scanf("%s", temp.dob);
+    unsigned int index = hash(s.id);
+    Node *current = db->buckets[index];
+    while (current) {
+      if (strcmp(current->data.id, s.id) == 0) {
+        current->data = s; // overwrite entire struct
+        printf("\nRecord updated successfully!\n");
+        return;
+      }
+      current = current->next;
     }
-
-    fwrite(&temp, sizeof(Student), 1, tmp);
   }
-
-  fclose(dataFile);
-  fclose(tmp);
-
-  remove("students.dat");
-  rename("temp.dat", "students.dat");
-
-  init_data_file();
-
-  if (updated)
-    printf("\nRecord updated successfully!\n");
-  else
-    printf("\nStudent not found!\n");
+  if (!updated)
+    printf("Record not found! \n");
 
   wait_enter();
 }
 
-// Delete the data
-void delete_student() {
+void print_student(Student *s) {
+  printf("\nID: %s\n", s->id);
+  printf("First Name: %s\n", s->fname);
+  printf("Last Name: %s\n", s->lname);
+  printf("Gender: %s\n", s->gender);
+  printf("Father: %s\n", s->father);
+  printf("Mother: %s\n", s->mother);
+  printf("DOB: %s\n", s->dob);
+}
+
+void db_display_all(Database *db) {
   clear_screen();
-
-  FILE *tmp = fopen("temp.dat", "wb");
-  char sid[30];
-  int removed = 0;
-
-  printf("Enter ID to delete: ");
-  scanf("%s", sid);
-
-  rewind(dataFile);
-
-  while (fread(&temp, sizeof(Student), 1, dataFile) == 1) {
-    if (strcmp(temp.id, sid) != 0)
-      fwrite(&temp, sizeof(Student), 1, tmp);
-    else
-      removed = 1;
+  if (db->count == 0) {
+    printf("No students in database.\n");
+    wait_enter();
+    return;
   }
 
-  fclose(dataFile);
-  fclose(tmp);
+  printf("\n=== All Students (%u total) ===\n", db->count);
 
-  remove("students.dat");
-  rename("temp.dat", "students.dat");
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    Node *current = db->buckets[i];
 
-  init_data_file();
+    while (current) {
+      print_student(&current->data);
+      printf("----------------------\n");
+      current = current->next;
+    }
+  }
+  wait_enter();
+}
 
-  if (removed)
-    printf("\nDeleted Successfully!\n");
-  else
-    printf("\nStudent Not Found!\n");
+void db_show_stats(Database *db) {
+  clear_screen();
+  int used_buckets = 0;
+  int max_chain = 0;
+  int total_chain_nodes = 0;
+
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    Node *current = db->buckets[i];
+    int chain_length = 0;
+
+    if (current)
+      used_buckets++;
+
+    while (current) {
+      chain_length++;
+      current = current->next;
+    }
+
+    if (chain_length > max_chain)
+      max_chain = chain_length;
+
+    total_chain_nodes += chain_length;
+  }
+
+  double load_factor = (double)db->count / TABLE_SIZE;
+  double avg_chain =
+      used_buckets ? (double)total_chain_nodes / used_buckets : 0;
+
+  printf("\n==== Database Stats ====\n");
+  printf("Total Students     : %u\n", db->count);
+  printf("Table Size         : %d\n", TABLE_SIZE);
+  printf("Used Buckets       : %u\n", used_buckets);
+  printf("Empty Buckets      : %d\n", TABLE_SIZE - (int)used_buckets);
+  printf("Load Factor        : %.3f\n", load_factor);
+  printf("Max Chain Length   : %u\n", max_chain);
+  printf("Avg Chain Length   : %.3f\n", avg_chain);
 
   wait_enter();
 }
 
-// Show no. of male and female in the records
-void show_statistics() {
+void menu(Database *db) {
+
+  int choice;
+  char id[20];
+  Student s;
+
+  login_system();
+  while (1) {
     clear_screen();
+    printf("\n==== Student DB ====\n");
+    printf("1. Add Student\n");
+    printf("2. Find Student\n");
+    printf("3. Delete Student\n");
+    printf("4. Update Student\n");
+    printf("5. Display All Students\n");
+    printf("6. Change password\n");
+    printf("7. Show Stats\n");
+    printf("8. Exit\n");
+    printf("Choice:");
+    scanf("%d", &choice);
 
-    int male = 0, female = 0, total = 0;
+    switch (choice) {
+    case 1:
+      input_student(&s);
+      db_add(db, s);
+      printf("Student added.\n");
+      break;
 
-    rewind(dataFile);
+    case 2:
+        clear_screen();
+      printf("Enter ID: ");
+      scanf("%19s", id);
+      Student *found = db_find(db, id);
+      if (found)
+        print_student(found);
+      else
+        printf("Student not found.\n");
+      break;
 
-    while (fread(&temp, sizeof(Student), 1, dataFile) == 1) {
-        total++;
+    case 3:
+      clear_screen();
+      printf("Enter ID: ");
+      scanf("%19s", id);
+      db_delete(db, id);
+      break;
 
-        if (temp.gender[0] == 'M' || temp.gender[0] == 'm')
-            male++;
-        else if (temp.gender[0] == 'F' || temp.gender[0] == 'f')
-            female++;
+    case 4:
+      printf("Enter ID to update: ");
+      scanf("%19s", id);
+
+      db_update(db, s, id);
+      break;
+
+    case 5:
+      db_display_all(db);
+      break;
+
+    case 6:
+      change_password();
+      break;
+
+    case 7:
+      db_show_stats(db);
+      break;
+
+    case 8:
+      return;
+
+    default:
+      printf("Invalid choice.\n");
+      return;
     }
-
-    printf("\n--- Student Statistics ---\n");
-    printf("Total Students : %d\n", total);
-    printf("Male Students  : %d\n", male);
-    printf("Female Students: %d\n", female);
-
-    wait_enter();
+  }
 }
