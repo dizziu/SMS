@@ -34,7 +34,7 @@ void save_snapshot(Database *db);
 void load_snapshot(Database *db);
 
 
-void input_student(Student *s);
+int input_student(Database *db, Student *s);
 void db_update(Database *db, Student s, char *id); 
 void print_student(Student *s);
 void db_show_stats(Database *db);

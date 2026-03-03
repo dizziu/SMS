@@ -110,53 +110,60 @@ void load_snapshot(Database *db) {
   fclose(file);
 }
 
-void input_student(Student *s) {
+int input_student(Database *db, Student *s) {
   clear_screen();
   printf("ID: ");
-  scanf("%19s", s->id);
+  scanf("%s", s->id);
+  if (db_find(db, s->id) != NULL) {
+    printf("Student ID already exists!");
+    wait_enter();
+    return 1;
+  }
 
   printf("First Name: ");
-  scanf("%49s", s->fname);
+  scanf("%s", s->fname);
 
   printf("Last Name: ");
-  scanf("%49s", s->lname);
+  scanf("%s", s->lname);
 
   printf("Gender: ");
-  scanf("%99s", s->gender);
+  scanf("%s", s->gender);
   printf("Father(First name only): ");
-  scanf("%99s", s->father);
+  scanf(" %[^\n]", s->father);
   printf("Mother(First name only): ");
-  scanf("%99s", s->mother);
+  scanf(" %[^\n]", s->mother);
   printf("DOB(YYYY/MM/DD): ");
-  scanf("%19s", s->dob);
+  scanf("%s", s->dob);
 
   printf("\nStudent Added Successfully\n");
   wait_enter();
+  return 0;
 }
 
 void db_update(Database *db, Student s, char *id) {
+  clear_screen();
   int updated = 0;
   if (db_find(db, id) != NULL) {
     updated = 1;
     strcpy(s.id, id); // keep same ID
     printf("Enter new details:\n");
     printf("First Name: ");
-    scanf("%49s", s.fname);
+    scanf("%s", s.fname);
 
     printf("Last Name: ");
-    scanf("%49s", s.lname);
+    scanf("%s", s.lname);
 
     printf("Gender: ");
-    scanf("%99s", s.gender);
+    scanf("%s", s.gender);
 
     printf("Father: ");
-    scanf("%99s", s.father);
+    scanf(" %[^\n]", s.father);
 
     printf("Mother: ");
-    scanf("%99s", s.mother);
+    scanf(" %[^\n]", s.mother);
 
     printf("DOB: ");
-    scanf("%19s", s.dob);
+    scanf("%s", s.dob);
 
     unsigned int index = hash(s.id);
     Node *current = db->buckets[index];
@@ -164,6 +171,7 @@ void db_update(Database *db, Student s, char *id) {
       if (strcmp(current->data.id, s.id) == 0) {
         current->data = s; // overwrite entire struct
         printf("\nRecord updated successfully!\n");
+        wait_enter();
         return;
       }
       current = current->next;
@@ -271,7 +279,8 @@ void menu(Database *db) {
     switch (choice) {
     // TODO: Check for same id
     case 1:
-      input_student(&s);
+      if (input_student(db, &s) == 1)
+        break;
       db_add(db, s);
       break;
 
